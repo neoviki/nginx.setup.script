@@ -1,0 +1,126 @@
+if [  -z $1 ]; then
+    echo
+    echo "	usage: nginx_setup <domain_name>"
+    echo ""
+    echo "	example: nginx_setup example.com [ don't add www or http* before domain ]"
+    echo ""
+    exit 1
+fi
+
+DOMAIN_NAME=$1
+DOMAIN_CONF="${DOMAIN_NAME}.conf"
+
+echo 
+echo $DOMAIN_NAME
+echo 
+
+# NGINX_CONFIG_FILE START
+
+cat > ./nginx.conf <<EOF
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+	worker_connections 768;
+	# multi_accept on;
+}
+
+http {
+
+	sendfile on;
+	tcp_nopush on;
+	tcp_nodelay on;
+	keepalive_timeout 65;
+	types_hash_max_size 2048;
+	# server_tokens off;
+
+	# server_names_hash_bucket_size 64;
+	# server_name_in_redirect off;
+
+	default_type application/octet-stream;
+
+	ssl_protocols TLSv1 TLSv1.1 TLSv1.2; # Dropping SSLv3, ref: POODLE
+	ssl_prefer_server_ciphers on;
+
+	access_log /var/log/nginx/access.log;
+	error_log /var/log/nginx/error.log;
+
+	gzip on;
+	gzip_disable "msie6";
+
+	include /etc/nginx/conf.d/*.conf;
+	include /etc/nginx/sites-enabled/*;
+}
+
+EOF
+
+#DOMAIN CONFIG FILE START
+cat > ./$DOMAIN_CONF <<DOMAIN_CONF_FILE_LABEL
+
+server {
+	listen 80;
+	listen [::]:80;
+	
+	listen 443 ssl default_server;
+	listen [::]:443 ssl default_server;
+	
+	server_name $DOMAIN_NAME www.$DOMAIN_NAME;
+
+	root /var/www/$DOMAIN_NAME/html;
+	index index.html;
+
+	location / {
+		try_files \$uri \$uri/ =404;
+	}
+}
+
+DOMAIN_CONF_FILE_LABEL
+#DOMAIN CONFIG FILE END
+
+#HTML FILE START
+cat > ./index.html <<HTML_FILE_LABEL
+<html>
+<title>$DOMAIN_NAME</title>
+<body> $DOMAIN_NAME sample page </body>
+</html>
+HTML_FILE_LABEL
+#HTML FILE END
+
+# NGINX_CONFIG_FILE END
+
+#REMOVE OLD FILES
+rm /etc/nginx/nginx.conf 
+rm /etc/nginx/sites-available/$DOMAIN_CONF
+rm -rf /var/www/$DOMAIN_NAME
+
+
+#COPY NGINX CONFIG
+cp nginx.conf  /etc/nginx/nginx.conf 
+#COPY DOMAIN CONFIG
+cp $DOMAIN_CONF /etc/nginx/sites-available/
+#make domain directory
+mkdir -p /var/www/$DOMAIN_NAME/html/
+#COPY HTML FILE
+cp index.html /var/www/$DOMAIN_NAME/html/
+
+#UNLINK OLD FILE
+unlink /etc/nginx/sites-enabled/docker.vikilabs.org.conf 2> /dev/null
+
+#ENABLE CONFIG
+ln -s /etc/nginx/sites-available/$DOMAIN_CONF /etc/nginx/sites-enabled/$DOMAIN_CONF
+
+#TEST CONFIG
+nginx -t
+
+#RESTART NGINX
+systemctl restart nginx
+
+##CLEAN UP
+rm $DOMAIN_CONF
+rm nginx.conf 
+rm index.html
+
+echo 
+echo "NGINX: setup completed successfully ( $DOMAIN_NAME )"
+echo 
