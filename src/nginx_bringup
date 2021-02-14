@@ -1,8 +1,20 @@
+#	NGINX BRINGUP 
+#
+#   Bringup a domain to live on nginx	
+#
+#   AUTHOR  : VIKI (A) VIGNESH NATARAJAN
+#	CONTACT : VIKIWORKS.IO
+#
+#
+#
+#	LICENCE: Unlicense
+#
+
 if [  -z $1 ]; then
     echo
-    echo "	usage: nginx_setup <domain_name>"
+    echo "	usage: nginx_bringup <domain_name>"
     echo ""
-    echo "	example: nginx_setup example.com [ don't add www or http* before domain ]"
+    echo "	example: nginx_bringup example.com [ don't add www or http* before domain ]"
     echo ""
     exit 1
 fi
